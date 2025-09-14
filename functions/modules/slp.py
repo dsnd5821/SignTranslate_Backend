@@ -4,10 +4,8 @@ from pathlib import Path
 
 from firebase_functions import https_fn
 
-from .utils.text import tokenize_user_input
-from .utils.storage import (
-    blob_exists, download_to_tmp, upload_inline, ensure_inline, sign_v4_inline
-)
+from .utils.text import tokenize_user_input, candidates_for_filename
+from .utils.storage import blob_exists, download_to_tmp, upload_inline, ensure_inline, sign_v4_inline
 from .utils.ffmpeg import concat_videos
 
 TMP_DIR = Path("/tmp"); TMP_DIR.mkdir(exist_ok=True, parents=True)
@@ -15,18 +13,25 @@ LIB_PREFIX = "slp_library"
 ABC_PREFIX = "alphabet"
 OUT_PREFIX = "composed"
 
-def _keys_for_gloss(g: str) -> list[str]:
-    """库命中用库，否则按字母降级为 alphabet 片段"""
-    k = f"{LIB_PREFIX}/{g}.mp4"
-    if blob_exists(k):
-        return [k]
+def _keys_for_gloss(g_input: str) -> list[str]:
+    """
+    优先用库视频：按照候选名顺序命中 slp_library/<name>.mp4；
+    否则回退到 alphabet（仅字母数字）。
+    """
+    # 1) 库候选
+    for base in candidates_for_filename(g_input):
+        key = f"{LIB_PREFIX}/{base}.mp4"
+        if blob_exists(key):
+            return [key]
+
+    # 2) 回退：仅字母数字，逐字符拼
+    fallback = re.sub(r"[^a-z0-9]+", "", g_input.lower())
     parts = []
-    for ch in g:
-        if ch.isalnum():
-            ak = f"{ABC_PREFIX}/{ch.upper()}.mp4"
-            if not blob_exists(ak):
-                raise FileNotFoundError(f"alphabet missing: {ch}")
-            parts.append(ak)
+    for ch in fallback:
+        ak = f"{ABC_PREFIX}/{ch.upper()}.mp4"
+        if not blob_exists(ak):
+            raise FileNotFoundError(f"alphabet missing: {ch}")
+        parts.append(ak)
     return parts
 
 def handle_slp_compose(req: https_fn.Request) -> https_fn.Response:
