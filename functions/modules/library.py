@@ -1,7 +1,7 @@
 import json
 from firebase_functions import https_fn
 from .utils.storage import blob_exists, ensure_inline, sign_v4_inline
-from .utils.text import norm_gloss
+from .utils.text import norm_gloss_lower
 
 LIB_PREFIX = "slp_library"
 
@@ -16,7 +16,7 @@ def handle_library_link(req: https_fn.Request) -> https_fn.Response:
     if not gloss:
         return https_fn.Response("Missing 'gloss'", status=400)
 
-    g = norm_gloss(gloss)
+    g = norm_gloss_lower(gloss)
     key = f"{LIB_PREFIX}/{g}.mp4"
     try:
         if not blob_exists(key):
