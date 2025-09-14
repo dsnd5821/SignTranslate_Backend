@@ -1,8 +1,7 @@
-import json, logging
+import json
 from firebase_functions import https_fn
-from firebase_admin import storage
 from .utils.storage import blob_exists, ensure_inline, sign_v4_inline
-from .utils.text import candidates_for_filename
+from .utils.text import norm_gloss
 
 LIB_PREFIX = "slp_library"
 
