@@ -31,27 +31,26 @@ def ensure_inline(key: str):
     b.patch()
 
 def sign_v4_inline(key: str, hours: int = 24) -> str:
-    """Generate a V4 signed URL for inline access.
-
-    The service account used must have
-    ``roles/iam.serviceAccountTokenCreator`` and ``roles/storage.objectViewer``
-    IAM roles.
-    """
-
+    # 取默认凭证 + 刷新出 access token
+    request = requests.Request()
     credentials, _ = google.auth.default()
-    service_account_email = getattr(credentials, "service_account_email", None)
-    signer = credentials
+    credentials.refresh(request)
 
-    if not hasattr(credentials, "sign_bytes"):
-        signer = iam.Signer(requests.Request(), credentials, service_account_email)
+    # 运行时 SA 的邮箱（比如 3977...-compute@developer.gserviceaccount.com）
+    sa_email = getattr(credentials, "service_account_email", None)
 
-    b = _bucket().blob(key)
+    # 用 IAM Signer 通过 signBlob 代签
+    signer = iam.Signer(request, credentials, sa_email)
+
+    # 生成 V4 签名 URL，注意这两个关键参数
+    b = storage.bucket().blob(key)
     return b.generate_signed_url(
         version="v4",
         expiration=timedelta(hours=hours),
         method="GET",
         response_disposition="inline",
         response_type="video/mp4",
-        service_account_email=service_account_email,
-        credentials=signer,
+        service_account_email=sa_email,   # 关键
+        access_token=credentials.token,   # 关键
+        credentials=signer,               # 关键
     )
