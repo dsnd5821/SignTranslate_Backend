@@ -1,6 +1,10 @@
-from firebase_admin import storage
 from datetime import timedelta
 from pathlib import Path
+
+import google.auth
+from firebase_admin import storage
+from google.auth import iam
+from google.auth.transport import requests
 
 def _bucket():
     return storage.bucket()
@@ -27,6 +31,20 @@ def ensure_inline(key: str):
     b.patch()
 
 def sign_v4_inline(key: str, hours: int = 24) -> str:
+    """Generate a V4 signed URL for inline access.
+
+    The service account used must have
+    ``roles/iam.serviceAccountTokenCreator`` and ``roles/storage.objectViewer``
+    IAM roles.
+    """
+
+    credentials, _ = google.auth.default()
+    service_account_email = getattr(credentials, "service_account_email", None)
+    signer = credentials
+
+    if not hasattr(credentials, "sign_bytes"):
+        signer = iam.Signer(requests.Request(), credentials, service_account_email)
+
     b = _bucket().blob(key)
     return b.generate_signed_url(
         version="v4",
@@ -34,4 +52,6 @@ def sign_v4_inline(key: str, hours: int = 24) -> str:
         method="GET",
         response_disposition="inline",
         response_type="video/mp4",
+        service_account_email=service_account_email,
+        credentials=signer,
     )
