@@ -22,10 +22,23 @@ def handle_library_link(req: https_fn.Request) -> https_fn.Response:
 
     g = norm_gloss(gloss)
     key = f"{LIB_PREFIX}/{g}.mp4"
-    if not blob_exists(key):
-        return https_fn.Response(f"gloss not found: {g}", status=404)
+    try:
+        if not blob_exists(key):
+            return https_fn.Response(f"gloss not found: {g}", status=404)
+    except Exception as e:
+        print(f"Error checking blob existence for {key}: {e}")
+        return https_fn.Response("Internal server error: failed to check blob existence", status=500)
 
-    ensure_inline(key)
-    url = sign_v4_inline(key)
+    try:
+        ensure_inline(key)
+    except Exception as e:
+        print(f"Error ensuring inline for {key}: {e}")
+        return https_fn.Response("Internal server error: failed to set inline metadata", status=500)
+
+    try:
+        url = sign_v4_inline(key)
+    except Exception as e:
+        print(f"Error signing URL for {key}: {e}")
+        return https_fn.Response("Internal server error: failed to sign URL", status=500)
     return https_fn.Response(json.dumps({"status": "ok", "key": key, "signed_url": url}),
                              headers={"Content-Type": "application/json"})
