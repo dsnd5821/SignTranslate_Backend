@@ -1,21 +1,42 @@
 import json
+from typing import Optional
+
+
 import firebase_admin.firestore
 from firebase_functions import https_fn
 from .utils.storage import ensure_inline, sign_v4_inline
 from .utils.text import norm_gloss_lower
 
+
+
+def _first_non_empty(*values: object) -> Optional[str]:
+    for value in values:
+        if isinstance(value, str):
+            trimmed = value.strip()
+            if trimmed:
+                return trimmed
+    return None
+
+
 def handle_library_link(req: https_fn.Request) -> https_fn.Response:
-    gloss = req.args.get("gloss") if req.method == "GET" else None
+    gloss = req.args.get("gloss")
+    normalized = req.args.get("g")
+
     if req.method != "GET":
         try:
             payload = json.loads(req.get_data().decode("utf-8"))
             gloss = gloss or payload.get("gloss")
+            normalized = normalized or payload.get("g")
         except Exception:
             return https_fn.Response("Invalid JSON", status=400)
-    if not gloss:
-        return https_fn.Response("Missing 'gloss'", status=400)
 
-    g = norm_gloss_lower(gloss)
+
+    gloss_source = _first_non_empty(normalized, gloss)
+    if not gloss_source:
+        return https_fn.Response("Missing 'gloss' or 'g'", status=400)
+
+    g = norm_gloss_lower(gloss_source)
+
 
     try:
         db = firebase_admin.firestore.client()
