@@ -1,10 +1,12 @@
 import json
 from typing import Optional
 
+
 import firebase_admin.firestore
 from firebase_functions import https_fn
 from .utils.storage import ensure_inline, sign_v4_inline
 from .utils.text import norm_gloss_lower
+
 
 
 def _first_non_empty(*values: object) -> Optional[str]:
@@ -28,11 +30,13 @@ def handle_library_link(req: https_fn.Request) -> https_fn.Response:
         except Exception:
             return https_fn.Response("Invalid JSON", status=400)
 
+
     gloss_source = _first_non_empty(normalized, gloss)
     if not gloss_source:
         return https_fn.Response("Missing 'gloss' or 'g'", status=400)
 
     g = norm_gloss_lower(gloss_source)
+
 
     try:
         db = firebase_admin.firestore.client()
